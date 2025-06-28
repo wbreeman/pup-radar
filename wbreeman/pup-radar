@@ -1,0 +1,69 @@
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="PupRadar - Illegale Hondenhandel", layout="wide")
+
+menu = st.sidebar.radio("📚 Kies een module", ["🧪 Advertentie-analyse", "🔍 Google zoektool"])
+
+# ---------------------------------------------
+# 🧪 MODULE 1: Advertentie-analyse
+# ---------------------------------------------
+if menu == "🧪 Advertentie-analyse":
+    st.title("🧪 PupRadar – Analyseer verdachte advertenties")
+    st.write("Voer hier handmatig advertenties in of onderzoek verdachte patronen.")
+
+    st.subheader("📋 Voeg een advertentie toe")
+    with st.form("add_ad"):
+        titel = st.text_input("Titel advertentie")
+        beschrijving = st.text_area("Beschrijving")
+        telefoon = st.text_input("Telefoonnummer")
+        locatie = st.text_input("Plaats")
+        prijs = st.number_input("Prijs (€)", min_value=0)
+        leeftijd = st.number_input("Leeftijd pup (in weken)", min_value=0)
+        submitted = st.form_submit_button("Toevoegen")
+        if submitted:
+            st.session_state.get("data", []).append({
+                "Titel": titel, "Beschrijving": beschrijving,
+                "Telefoon": telefoon, "Locatie": locatie,
+                "Prijs": prijs, "Leeftijd": leeftijd
+            })
+            st.success("Toegevoegd.")
+
+    st.subheader("🔎 Overzicht & analyse")
+    data = pd.DataFrame(st.session_state.get("data", []))
+    if not data.empty:
+        st.dataframe(data)
+
+        st.markdown("### 🚨 Mogelijke verdachte patronen")
+        dupes = data[data.duplicated("Telefoon", keep=False)]
+        jonge_pups = data[data["Leeftijd"] < 15]
+        if not dupes.empty:
+            st.warning("Meerdere advertenties met hetzelfde telefoonnummer:")
+            st.dataframe(dupes)
+        if not jonge_pups.empty:
+            st.warning("Pups jonger dan 15 weken (mogelijk illegale import):")
+            st.dataframe(jonge_pups)
+
+        st.download_button("📥 Download als CSV", data.to_csv(index=False), "pup_data.csv", "text/csv")
+    else:
+        st.info("Nog geen advertenties ingevoerd.")
+
+# ---------------------------------------------
+# 🔍 MODULE 2: Google zoektool
+# ---------------------------------------------
+elif menu == "🔍 Google zoektool":
+    st.title("🔍 Google Query Generator – Zoek op Marktplaats")
+
+    st.markdown("Vul hieronder in wat je zoekt, en klik op de link om direct in Google te zoeken binnen Marktplaats.")
+
+    ras = st.text_input("Ras (bijv. pomeriaan, toypoedel, maltezer)")
+    leeftijd = st.text_input("Leeftijd (bijv. 8 weken, 10 weken, jonger dan 15 weken)")
+    land = st.text_input("Herkomst of land (bijv. Roemenië, Bulgarije)")
+    verdacht = st.text_input("Verdachte termen (bijv. geen moeder, paspoort, ready to go)")
+
+    if st.button("🔎 Genereer zoekopdracht"):
+        base = "site:marktplaats.nl"
+        terms = [ras, leeftijd, land, verdacht]
+        query = " ".join([f'"{t.strip()}"' for t in terms if t.strip()])
+        url = f"https://www.google.com/search?q={base}+{query.replace(' ', '+')}"
+        st.markdown(f"🔗 [Klik hier om te zoeken in Google]({url})", unsafe_allow_html=True)
